@@ -1,0 +1,12 @@
+{
+  "parts": [
+    {
+      "name": "ep_icatplus_auth",
+      "hooks": {
+        "authenticate": "ep_icatplus_auth/ep_icatplus_auth",
+        "authorize": "ep_icatplus_auth/ep_icatplus_auth",
+        "handleMessage": "ep_icatplus_auth/ep_icatplus_auth"
+      }
+    }
+  ]
+}
