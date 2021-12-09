@@ -8,10 +8,13 @@ In your etherpad-lite dir:
 
 Add to settings.json:
 
+```
 "users": {
-"icatplus": {
-" server": "https://icatplus.esrf.fr"
-},
+    "icatplus": {
+        " server": "https://icatplus.esrf.fr"
+    },
+}
+```
 
 Users who are which have access to the logbook of the padName will have access to the pad
 
