@@ -42,6 +42,7 @@ exports.authenticate = function (hook_name, context, cb) {
   }
 
   const url = server + "/session/" + sessionID;
+
   axios
     .get(url)
     .then((response) => {
