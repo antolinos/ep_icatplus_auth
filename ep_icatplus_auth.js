@@ -2,22 +2,12 @@
 //
 // @License MIT
 
-//var LdapAuth = require('ldapauth');
-var MyLdapAuth = require("./lib/MyLdapAuth.js");
-var util = require("util");
-var fs = require("fs");
 const axios = require("axios-https-proxy-fix");
 
-var ERR = require("async-stacktrace");
 var settings = require("ep_etherpad-lite/node/utils/Settings");
 var authorManager = require("ep_etherpad-lite/node/db/AuthorManager");
 
 const { server } = settings.users.icatplus;
-
-function ldapauthSetUsername(token, username) {
-  authorManager.setAuthorName(username, username);
-  return;
-}
 
 exports.authenticate = function (hook_name, context, cb) {
   const { server } = settings.users.icatplus;
@@ -42,25 +32,47 @@ exports.authenticate = function (hook_name, context, cb) {
   }
 
   const url = server + "/session/" + sessionID;
-
   axios
     .get(url)
     .then((response) => {
       const { userName, user } = response.data;
 
-      if (!userName) throw "No user name";
+      console.log("Login done", { userName, user });
+
+      if (!userName) {
+        console.warn(
+          `ep_icatplus_auth.authenticate: Failed authentication from IP ${context.req.ip}`
+        );
+        return cb([false]);
+      }
+
+      console.info(
+        `ep_icatplus_auth.authenticate: Successful authentication from IP ${context.req.ip} for user ${userName}`
+      );
+
+      const users = context.users;
+      if (!(userName in users)) users[userName] = {};
+      users[userName].username = userName;
+      context.req.session.user = users[userName];
 
       context.req.session.user = {
         username: userName,
+        name: user.fullName,
+        displayName: user.fullName,
         authorID: userName,
         is_admin: user.isAdministrator === "true",
         sessionID: context.req.query.sessionID,
         padName: context.req.query.padName,
+        readOnly: true,
       };
+
+      //authorManager.setAuthorName(userName, user.fullName);
       console.log("User is authenticated", {
         userName,
+        fullName: user.fullName,
         isAdministrator: user.isAdministrator,
         isInstrumentScientist: user.isInstrumentScientist,
+        displayName: userName,
       });
       return cb([true]);
     })
@@ -73,32 +85,36 @@ exports.authenticate = function (hook_name, context, cb) {
 
 /**
  * Does the user authenticated with the sessionId has the right on the pad
- * It means that checks if the user is participant or manager or the pad is not under embargo
+ * It checks if the user is participant/manager or the pad is not under embargo
  * @param {*} hook_name
  * @param {*} context
  * @param {*} cb
  * @returns
  */
 exports.authorize = function (hook_name, context, cb) {
-  const { username, authorID, sessionID, padName } = context.req.session.user;
+  const { username, authorID, sessionID, padName, name, displayName } =
+    context.req.session.user;
   console.log("Authorize", {
     hook_name,
     username,
     authorID,
     sessionID,
     padName,
+    name,
+    displayName,
   });
   const url =
     server + "/logbook/" + sessionID + "/event?investigationId=" + padName;
-  console.log(url);
   axios
     .get(url)
     .then((response) => {
-      console.log(response.status);
-
+      console.log("Autorized");
       if (response.status == 200) {
+        context.req.session.user["displayName"] = displayName;
+
         return cb([true]);
       }
+      console.log("Unautorized");
       return cb([false]);
     })
     .catch((e) => {
@@ -107,45 +123,32 @@ exports.authorize = function (hook_name, context, cb) {
       return cb([false]);
     });
 };
+/*
+This hook will be called once a message arrives. If a plugin calls callback(true) the message will be allowed to be processed. 
+This is especially useful if you want read only pad visitors to update pad contents for whatever reason.
+exports.handleMessageSecurity = (hook, context, callback) => {
+  if (context.message.boomerang == "hipster") {
+    // If the message boomer is hipster, allow the request
+    callback(true);
+  } else {
+    callback();
+  }
+};*/
 
 exports.handleMessage = function (hook_name, context, cb) {
-  console.debug("222 ep_ldapauth.handleMessage");
+  let { message, socket, sessionInfo } = context;
 
   if (context.message.type == "CLIENT_READY") {
-    if (!context.message.token) {
-      console.debug(
-        "ep_ldapauth.handleMessage: intercepted CLIENT_READY message has no token!"
-      );
-    } else {
-      var client_id = context.client.id;
-      if ("user" in context.client.client.request.session) {
-        var displayName =
-          context.client.client.request.session.user.displayName;
-        if (settings.users.ldapauth.anonymousReadonly && !displayName)
-          displayName = "guest";
-        console.debug(
-          "ep_ldapauth.handleMessage: intercepted CLIENT_READY message for client_id = %s, setting username for token %s to %s",
-          client_id,
-          context.message.token,
-          displayName
-        );
-        ldapauthSetUsername(context.message.token, displayName);
-      } else {
-        console.debug(
-          "ep_ldapauth.handleMessage: intercepted CLIENT_READY but user does have displayName !"
-        );
-      }
+    if (message && message.userInfo && message.userInfo.name) {
+      message.userInfo.name =
+        context.client.client.request.session.user.displayName;
     }
-  } else if (
-    context.message.type == "COLLABROOM" &&
-    context.message.data.type == "USERINFO_UPDATE"
-  ) {
-    console.debug(
-      "ep_ldapauth.handleMessage: intercepted USERINFO_UPDATE and dropping it!"
-    );
+  }
+
+  /** This prevents update userinfo */
+  if (context.message.type == "USERINFO_UPDATE") {
     return cb([null]);
   }
+
   return cb([context.message]);
 };
-
-// vim: sw=2 ts=2 sts=2 et ai
