@@ -19,7 +19,7 @@ exports.authenticate = function (hook_name, context, cb) {
     server,
   });
 
-  const { sessionID, padName } = context.req.query;
+  const { sessionID, padName, fullName } = context.req.query;
 
   if (!sessionID) {
     console.log("No sessionID");
@@ -40,15 +40,11 @@ exports.authenticate = function (hook_name, context, cb) {
       console.log("Login done", { userName, user });
 
       if (!userName) {
-        console.warn(
-          `ep_icatplus_auth.authenticate: Failed authentication from IP ${context.req.ip}`
-        );
+        console.warn(`ep_icatplus_auth.authenticate: Failed authentication from IP ${context.req.ip}`);
         return cb([false]);
       }
 
-      console.info(
-        `ep_icatplus_auth.authenticate: Successful authentication from IP ${context.req.ip} for user ${userName}`
-      );
+      console.info(`ep_icatplus_auth.authenticate: Successful authentication from IP ${context.req.ip} for user ${userName}`);
 
       const users = context.users;
       if (!(userName in users)) users[userName] = {};
@@ -63,7 +59,7 @@ exports.authenticate = function (hook_name, context, cb) {
         is_admin: user.isAdministrator === "true",
         sessionID: context.req.query.sessionID,
         padName: context.req.query.padName,
-        readOnly: true,
+        // readOnly: false,
       };
 
       //authorManager.setAuthorName(userName, user.fullName);
@@ -92,8 +88,7 @@ exports.authenticate = function (hook_name, context, cb) {
  * @returns
  */
 exports.authorize = function (hook_name, context, cb) {
-  const { username, authorID, sessionID, padName, name, displayName } =
-    context.req.session.user;
+  const { username, authorID, sessionID, padName, name, displayName } = context.req.session.user;
   console.log("Authorize", {
     hook_name,
     username,
@@ -103,13 +98,12 @@ exports.authorize = function (hook_name, context, cb) {
     name,
     displayName,
   });
-  const url =
-    server + "/logbook/" + sessionID + "/event?investigationId=" + padName;
+  const url = server + "/logbook/" + sessionID + "/event?investigationId=" + padName;
   axios
     .get(url)
     .then((response) => {
-      console.log("Autorized");
       if (response.status == 200) {
+        console.log("Autorized " + displayName);
         context.req.session.user["displayName"] = displayName;
 
         return cb([true]);
@@ -138,11 +132,17 @@ exports.handleMessageSecurity = (hook, context, callback) => {
 exports.handleMessage = function (hook_name, context, cb) {
   let { message, socket, sessionInfo } = context;
 
+  console.log(context.message);
+  //console.log(context.client.client.request.session.user.displayName);
+  //message.userInfo.name = context.client.client.request.session.user.displayName;
   if (context.message.type == "CLIENT_READY") {
     if (message && message.userInfo && message.userInfo.name) {
-      message.userInfo.name =
-        context.client.client.request.session.user.displayName;
+      message.userInfo.name = context.client.client.request.session.user.displayName;
     }
+    
+
+
+
   }
 
   /** This prevents update userinfo */
