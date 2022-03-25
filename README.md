@@ -44,7 +44,6 @@ Etherpad can be fully installed by following the next recipe:
 git clone --branch master https://github.com/ether/etherpad-lite.git &&
 cd etherpad-lite &&
 npm install --legacy-peer-deps ep_headings2 ep_markdown ep_comments_page ep_align ep_font_color ep_embedded_hyperlinks2 ep_icatplus_auth ep_auth_session &&
-cp ../settings.json . &&
 ./bin/run.sh
 
 ```
