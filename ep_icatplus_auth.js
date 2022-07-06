@@ -124,10 +124,6 @@ exports.authorize = function (hook_name, context, cb) {
 
 exports.handleMessage = function (hook_name, context, cb) {
   let { message } = context;
-
-  console.log(context.message);
-  //console.log(context.client.client.request.session.user.displayName);
-  //message.userInfo.name = context.client.client.request.session.user.displayName;
   if (context.message.type == "CLIENT_READY") {
     if (message && message.userInfo && message.userInfo.name) {
       message.userInfo.name = context.client.client.request.session.user.displayName;
