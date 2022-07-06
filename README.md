@@ -1,4 +1,4 @@
-# Etherpad lite LDAP authentication and authorization
+# Etherpad lite ICAT+ authentication and authorization
 
 ## Install
 
@@ -11,7 +11,7 @@ Add to settings.json:
 ```
 "users": {
     "icatplus": {
-        " server": "https://icatplus.esrf.fr"
+        "server": "https://icatplus.server.com"
     },
 }
 ```

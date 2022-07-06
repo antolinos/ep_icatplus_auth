@@ -3,9 +3,7 @@
 // @License MIT
 
 const axios = require("axios-https-proxy-fix");
-
 var settings = require("ep_etherpad-lite/node/utils/Settings");
-var authorManager = require("ep_etherpad-lite/node/db/AuthorManager");
 
 const { server } = settings.users.icatplus;
 
@@ -31,29 +29,27 @@ exports.authenticate = function (hook_name, context, cb) {
     return cb([false]);
   }
 
-  const url = server + "/session/" + sessionID;
-  axios
-    .get(url)
+  const instance = axios.create({
+    baseURL: server,
+  });
+
+  instance
+    .get(`/session/$sessionID`)
     .then((response) => {
       const { userName, user } = response.data;
 
       console.log("Login done", { userName, user });
 
       if (!userName) {
-        console.warn(
-          `ep_icatplus_auth.authenticate: Failed authentication from IP ${context.req.ip}`
-        );
+        console.warn(`ep_icatplus_auth.authenticate: Failed authentication from IP ${context.req.ip}`);
         return cb([false]);
       }
 
-      console.info(
-        `ep_icatplus_auth.authenticate: Successful authentication from IP ${context.req.ip} for user ${userName}`
-      );
+      console.info(`ep_icatplus_auth.authenticate: Successful authentication from IP ${context.req.ip} for user ${userName}`);
 
       const users = context.users;
       if (!(userName in users)) users[userName] = {};
       users[userName].username = userName;
-      context.req.session.user = users[userName];
 
       context.req.session.user = {
         username: userName,
@@ -63,10 +59,10 @@ exports.authenticate = function (hook_name, context, cb) {
         is_admin: user.isAdministrator === "true",
         sessionID: context.req.query.sessionID,
         padName: context.req.query.padName,
-        readOnly: true,
+        // readOnly: false,
       };
 
-      //authorManager.setAuthorName(userName, user.fullName);
+      //TODO: authorManager.setAuthorName(userName, user.fullName);
       console.log("User is authenticated", {
         userName,
         fullName: user.fullName,
@@ -92,8 +88,7 @@ exports.authenticate = function (hook_name, context, cb) {
  * @returns
  */
 exports.authorize = function (hook_name, context, cb) {
-  const { username, authorID, sessionID, padName, name, displayName } =
-    context.req.session.user;
+  const { username, authorID, sessionID, padName, name, displayName } = context.req.session.user;
   console.log("Authorize", {
     hook_name,
     username,
@@ -103,13 +98,16 @@ exports.authorize = function (hook_name, context, cb) {
     name,
     displayName,
   });
-  const url =
-    server + "/logbook/" + sessionID + "/event?investigationId=" + padName;
-  axios
-    .get(url)
+
+  const instance = axios.create({
+    baseURL: server,
+  });
+
+  instance
+    .get(`/logbook/${sessionID}/event?investigationId=${padName}`)
     .then((response) => {
-      console.log("Autorized");
       if (response.status == 200) {
+        console.log("Autorized " + displayName);
         context.req.session.user["displayName"] = displayName;
 
         return cb([true]);
@@ -123,25 +121,13 @@ exports.authorize = function (hook_name, context, cb) {
       return cb([false]);
     });
 };
-/*
-This hook will be called once a message arrives. If a plugin calls callback(true) the message will be allowed to be processed. 
-This is especially useful if you want read only pad visitors to update pad contents for whatever reason.
-exports.handleMessageSecurity = (hook, context, callback) => {
-  if (context.message.boomerang == "hipster") {
-    // If the message boomer is hipster, allow the request
-    callback(true);
-  } else {
-    callback();
-  }
-};*/
 
 exports.handleMessage = function (hook_name, context, cb) {
-  let { message, socket, sessionInfo } = context;
+  let { message } = context;
 
   if (context.message.type == "CLIENT_READY") {
     if (message && message.userInfo && message.userInfo.name) {
-      message.userInfo.name =
-        context.client.client.request.session.user.displayName;
+      message.userInfo.name = context.client.client.request.session.user.displayName;
     }
   }
 
